@@ -4,3 +4,6 @@ but I wanted to write the software on my own and develop my embedded design skil
 an LCD screen for a debug display, and bump switches and IR sensors to navigate. I wrote about 95% of the code and I have it currently 
 making full rounds around the kitchen without any crashes. The end goal is to control the robot car from my PC and have video streaming 
 back as well, so I can race it around as I want.
+
+In the works of integrating I2C functionality for use with laser-ranging sensors. These sensors will be used for rear navigation and preventing
+rear collisions on the car.
