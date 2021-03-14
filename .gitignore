@@ -36,11 +36,30 @@
 *.x86_64
 *.hex
 
+# Miscellaneous
+*.jpg
+*.PNG
+*.xlsx
+
 # Debug files
 *.dSYM/
 *.su
 *.idb
 *.pdb
+
+# Project files
+.ccsproject
+.cproject
+.project
+Debug/makefile
+Release/makefile
+*.launch
+*.mk
+*.prefs
+*.opt
+*.xml
+*.ccxml
+targetConfigs/readme.txt
 
 # Kernel Module Compile Results
 *.mod*
@@ -50,3 +69,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+
+
+
