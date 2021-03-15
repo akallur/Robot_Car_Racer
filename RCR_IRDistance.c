@@ -42,26 +42,36 @@ those of the authors and should not be interpreted as representing official
 policies, either expressed or implied, of the FreeBSD Project.
 */
 
-// 5V connected to all three IR sensors
-// ground connected to all three IR sensors
-// P9.0 (analog ch 17) connected to right sensor signal line
-// P6.1 (analog ch 14) connected to center sensor signal line
-// P9.1 (analog ch 16) connected to left sensor signal line
-
 
 #include <stdint.h>
 #include <stdlib.h>
 //#include "ADC14.h"
 #include "msp.h"
 
-#define MAX_ANLG_CHNLS 32         //limit for MSP432 mcu
 
+/*
+ Hardware connections
+ ---------------------------------------------------------
+ 5V connected to all three IR sensors
+ ground connected to all three IR sensors
+ P9.0 (analog ch 17) connected to right sensor signal line
+ P6.1 (analog ch 14) connected to center sensor signal line
+ P9.1 (analog ch 16) connected to left sensor signal line
+*/
+
+
+#define MAX_ANLG_CHNLS 32         //limit for MSP432 mcu
+#define HEAP_SIZE      4096       //adjust this if you change value in linker properties
+
+// empirically-derived values for calibration equation, assumes 14-bit ADC
 #define CAL_CONST      0.91       // k value
 #define INV_SLOPE      126716.5   // 1/m value
 #define INTERCEPT      575.6511   // b/m value
 #define CM_TO_MM       10
 
 
+// data structure to hold Low Pass Filter parameters
+// for each analog channel
 struct Analog_Chnl
 {
     uint32_t* data_buff;
@@ -71,23 +81,67 @@ struct Analog_Chnl
 
 typedef struct Analog_Chnl analog_chnl;
 
+
 static analog_chnl* analog_sensors;     //array of all analog sensors/channels
 static uint32_t     filter_size;        //standard filter size for all sensors(may make this dynamic if I add different sensors)
 
-///**
-// * Convert ADC sample into distance for the GP2Y0A21YK0F
-// * infrared distance sensor.  Conversion uses a calibration formula
-// * R = (1/m)/(ADCval + (b/m)) - k
-// */
-uint32_t ConvertDist(uint32_t ADCval) {        // returns distance in mm
+/*
+  ConvertDist
+  ----------------------------------------------------------------------
+  Convert ADC sample into distance for the GP2Y0A21YK0F
+  infrared distance sensor. ADCval is a 14-bit sample that
+  has already gone through the Low Pass Filter. The equation
+  below will convert the sample to a distance in millimeters.
+  Any decimal values are truncated when the final distance is
+  returned. The equation was empirically-derived from taking
+  physical measurements from IR sensors and correlating them
+  to ADC samples. Finding a line of best fit from these samples
+  will give you the constants used.
+
+  The CAL_CONST should be adjusted to tweak the equation for more
+  accuracy. Any change to ADC precision(14-bit) will need all
+  constants recalculated.
+  Calibration equation: R = (1/m)/(ADCval + (b/m)) - k
+
+  Parameters:   1) 14-bit filtered ADC value to calculate distance from
+  Return value: distance away from nearest object in mm,
+                    useful range is 100-800 mm
+*/
+uint32_t ConvertDist(uint32_t ADCval) {
+    //ARM Cortex-M4F processor has Floating Point Unit to efficiently handle
+    //floating point operations
     return ((INV_SLOPE/(ADCval + INTERCEPT)) - CAL_CONST)*CM_TO_MM;
 }
 
 
+/*
+  LowPassFilter_Init
+  ----------------------------------------------------------------------
+  Create and initialize an array of analog channels for use as low
+  pass filters. There's an element for each channel that holds its
+  filter buffer, sum of all elements in its buffer, and current index
+  of the buffer. Each channel will have all elements of their filter
+  buffer set to their ADC sample in the init_data array to start off.
+  Each successive sample will overwrite the oldest sample in the buffer.
+
+  The filter buffers are dynamically allocated and the current HEAP_SIZE
+  is 4096. That means the max size for the filter buffers is 341. If you
+  need more, increase the heap size in linker properties and update HEAP_SIZE.
+
+  Parameters:   1) number of analog channels used on robot,
+                       max is MAX_ANLG_CHNLS
+                2) number of elements in filter buffer for each channel,
+                       max is HEAP_SIZE/num_channels/4 bytes
+                3) array of first raw ADC sample for each channel
+  Return value: none
+*/
 void LowPassFilter_Init(uint32_t num_channels,uint32_t size,uint32_t* init_data) {
     int x,y;
     if(num_channels > MAX_ANLG_CHNLS) num_channels = MAX_ANLG_CHNLS;
-    filter_size = size;
+    if(size*num_channels*sizeof(uint32_t) > HEAP_SIZE)
+        filter_size = (uint32_t)((HEAP_SIZE/num_channels)/sizeof(uint32_t));
+    else
+        filter_size = size;
 
     analog_sensors = (analog_chnl*)malloc(num_channels*sizeof(analog_chnl));     //create buffer for all channels of any size
     for(x = 0; x < num_channels; x++)                                           //if I want more distance sensors, I can easily add more channels
@@ -95,14 +149,31 @@ void LowPassFilter_Init(uint32_t num_channels,uint32_t size,uint32_t* init_data)
         analog_sensors[x].data_buff   = (uint32_t *)malloc(filter_size*sizeof(uint32_t));
         analog_sensors[x].rolling_sum = 0;
         analog_sensors[x].buff_cnt    = 0;
-        for(y = 0; y < filter_size; y++)                                          //prefill with current sample
+        for(y = 0; y < filter_size; y++)              //prefill with current sample
         {
             analog_sensors[x].data_buff[y] = init_data[x];
-            analog_sensors[x].rolling_sum += analog_sensors[x].data_buff[y];      //calculate sum in advance
+            analog_sensors[x].rolling_sum += analog_sensors[x].data_buff[y];   //calculate sum in advance
         }
     }
 }
 
+
+/*
+  LowPassFilter
+  ----------------------------------------------------------------------
+  Takes in raw sample and fills it into filter buffer for the channel
+  selected. The new sample is added twice and the 2 oldest samples are
+  written over, similar to a FIFO. The average value of the buffer
+  is calculated, acting as a low pass filter.
+
+  If initialized with a larger size, the filter will be more accurate
+  but take longer to process.
+
+  Parameters:   1) analog channel selected
+                2) 14-bit raw ADC sample to be filtered
+
+  Return value: averaged ADC value of filter buffer
+*/
 uint32_t LowPassFilter(uint32_t chnl,uint32_t data) {
     analog_chnl* current = &analog_sensors[chnl];                   //store current channels data
     current->rolling_sum += (2*data);                               //add 2 copies of latest sample, subtract 2 oldest samples

@@ -45,31 +45,53 @@ policies, either expressed or implied, of the FreeBSD Project.
 #ifndef RCR_BUMPER_H__
 #define RCR_BUMPER_H__
 
-// Negative logic bump sensors with internal pullups
-// P4.7 connected to Bump5, left side of robot
-// P4.6 connected to Bump4
-// P4.5 connected to Bump3
-// P4.3 connected to Bump2
-// P4.2 connected to Bump1
-// P4.0 connected to Bump0, right side of robot
+
+/*
+ Hardware connections
+ ---------------------------------------------------------
+ Negative logic bump sensors with internal pullups
+ P4.7 connected to Bump5, left side of robot
+ P4.6 connected to Bump4
+ P4.5 connected to Bump3
+ P4.3 connected to Bump2
+ P4.2 connected to Bump1
+ P4.0 connected to Bump0, right side of robot
+*/
 
 
-// Initialize Bump sensors
-// negative logic
-// Activate interface pullup
-// Make Port 4 pins 7,6,5,3,2,0 inputs
-// Interrupt on falling edge (down press) and call user function
+/*
+  Bump_Init
+  ----------------------------------------------------------------------
+  Initialize Bump sensors with negative logic. Port 4 pins 7,6,5,3,2,0
+  are all set to inputs and have internal pullup resistors. Interrupts
+  occur on falling edge(down press) and will call user function, which
+  will shut off the motors.
+
+  Edge-triggered interrupt is used in handling robot collisions and
+  has the highest priority in the system.
+
+  Parameters:   1) function pointer to user task to be called during interrupt
+  Return value: none
+*/
 void Bump_Init(void(*task)(uint8_t));
 
 
-// Read current state of all switches
-// Returns a 6-bit positive logic result (0 to 63)
-// bit 5 Bump5
-// bit 4 Bump4
-// bit 3 Bump3
-// bit 2 Bump2
-// bit 1 Bump1
-// bit 0 Bump0
+/*
+  Bump_Read
+  ----------------------------------------------------------------------
+  Reads current state of all switches and returns a 6-bit positive
+  logic result.
+
+  Parameters:   none
+  Return value: state of all bump switches,
+                    bit 5 = Bump5(leftmost),
+                    bit 4 = Bump4,
+                    bit 3 = Bump3,
+                    bit 2 = Bump2,
+                    bit 1 = Bump1,
+                    bit 0 = Bump0(rightmost),
+                    range is 0 to 63
+*/
 uint8_t Bump_Read(void);
 
 #endif // RCR_BUMPER_H__

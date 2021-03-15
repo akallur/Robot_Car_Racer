@@ -48,21 +48,35 @@ policies, either expressed or implied, of the FreeBSD Project.
 //#include "RCR_SysTick.h"
 
 
-// Negative logic bump sensors with internal pullups
-// P4.7 connected to Bump5, left side of robot
-// P4.6 connected to Bump4
-// P4.5 connected to Bump3
-// P4.3 connected to Bump2
-// P4.2 connected to Bump1
-// P4.0 connected to Bump0, right side of robot
+/*
+ Hardware connections
+ ---------------------------------------------------------
+ Negative logic bump sensors with internal pullups
+ P4.7 connected to Bump5, left side of robot
+ P4.6 connected to Bump4
+ P4.5 connected to Bump3
+ P4.3 connected to Bump2
+ P4.2 connected to Bump1
+ P4.0 connected to Bump0, right side of robot
+*/
 
-static void (*Port4Task)(uint8_t);   // user function
 
-// Initialize Bump sensors
-// negative logic
-// Activate interface pullup
-// Make Port 4 pins 7,6,5,3,2,0 inputs
-// Interrupt on falling edge (down press) and call user function
+static void (*Port4Task)(uint8_t);   // user function called by interrupt
+
+/*
+  Bump_Init
+  ----------------------------------------------------------------------
+  Initialize Bump sensors with negative logic. Port 4 pins 7,6,5,3,2,0
+  are all set to inputs and have internal pullup resistors. Interrupts
+  occur on falling edge(down press) and will call user function, which
+  will shut off the motors.
+
+  Edge-triggered interrupt is used in handling robot collisions and
+  has the highest priority in the system.
+
+  Parameters:   1) function pointer to user task to be called during interrupt
+  Return value: none
+*/
 void Bump_Init(void(*task)(uint8_t)) {
     Port4Task = task;
     //SysTick_Init();
@@ -71,7 +85,7 @@ void Bump_Init(void(*task)(uint8_t)) {
     P4->SEL1 &= ~0xED;
     P4->DIR  &= ~0xED;
     P4->REN  |=  0xED;
-    P4->OUT  |=  0xED;             //internal pullup
+    P4->OUT  |=  0xED;           //internal pullup
     P4->IES  |=  0xED;           // falling edge
     P4->IFG  &= ~0xED;
     P4->IE   |=  0xED;
@@ -81,23 +95,40 @@ void Bump_Init(void(*task)(uint8_t)) {
 }
 
 
-// Read current state of all switches
-// Returns a 6-bit positive logic result (0 to 63)
-// bit 5 Bump5
-// bit 4 Bump4
-// bit 3 Bump3
-// bit 2 Bump2
-// bit 1 Bump1
-// bit 0 Bump0
+/*
+  Bump_Read
+  ----------------------------------------------------------------------
+  Reads current state of all switches and returns a 6-bit positive
+  logic result.
+
+  Parameters:   none
+  Return value: state of all bump switches,
+                    bit 5 = Bump5(leftmost),
+                    bit 4 = Bump4,
+                    bit 3 = Bump3,
+                    bit 2 = Bump2,
+                    bit 1 = Bump1,
+                    bit 0 = Bump0(rightmost),
+                    range is 0 to 63
+*/
 uint8_t Bump_Read(void) {
     return  (uint8_t)(~((P4->IN&0x01) | ((P4->IN&0x0C)>>1) | ((P4->IN&0xE0)>>2)));
 }
 
-// triggered on press, falling edge
-// will handle multiple switches interrupts
+
+/*
+  PORT4_IRQHandler
+  ----------------------------------------------------------------------
+  Edge-triggered interrupt that occurs on a falling edge of a bump switch.
+  The bump switches are read and then the user task is called to handle
+  any collisions. Multiple switch interrupts can be handled simultaneously.
+
+  Parameters:   none
+  Return value: none
+*/
 void PORT4_IRQHandler(void) {
     //uint32_t before = SysTick->VAL;
-    //P1->OUT ^= 0x01;
+    //P1->OUT ^= 0x01;      //performance measuring
     //P1->OUT ^= 0x01;
 
     uint8_t status = P4->IV;
