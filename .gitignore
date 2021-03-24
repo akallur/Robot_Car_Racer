@@ -38,8 +38,8 @@
 
 # Miscellaneous
 *.jpg
-*.PNG
-*.xlsx
+###############*.PNG
+###############*.xlsx
 
 # Debug files
 *.dSYM/
@@ -48,17 +48,17 @@
 *.pdb
 
 # Project files
-.ccsproject
-.cproject
-.project
-Debug/makefile
+###############.ccsproject
+###############.cproject
+###############.project
+###############Debug/makefile
 Release/makefile
-*.launch
-*.mk
-*.prefs
+###############*.launch
+###############*.mk
+###############*.prefs
 *.opt
-*.xml
-*.ccxml
+###############*.xml
+###############*.ccxml
 targetConfigs/readme.txt
 
 # Kernel Module Compile Results

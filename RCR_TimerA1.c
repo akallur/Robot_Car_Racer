@@ -58,7 +58,7 @@ void TimerA1_Init(void(*task)(void), uint16_t period) {
 
     TA1CTL  &= ~0x0030;     //halt timer
     TA1CTL   = 0x02C0;    //halt timer, smclk_12MHz, divide by 8
-    TA1EX0   = 0x0007;    //set for divide by 8 again
+    TA1EX0   = 0x0007;    //set for another divide by 8
 
     TA1CCTL0 = 0x0010;      //compare mode, out mode is not used, arm interrupt
     TA1CCR0  = period;      //load in cycles
