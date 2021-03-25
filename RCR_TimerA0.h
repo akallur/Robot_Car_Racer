@@ -48,20 +48,59 @@ policies, either expressed or implied, of the FreeBSD Project.
 
 #include <stdbool.h>
 
-// P2.7 (TimerA0 sub 4) connected to Left motor PWM
-// P2.6 (TimerA0 sub 3) connected to Right motor PWM
+/*
+ Hardware connections
+ ---------------------------------------------------------
+ P2.7 (TimerA0 sub 4) connected to Left motor PWM
+ P2.6 (TimerA0 sub 3) connected to Right motor PWM
+*/
 
 
-/**
- * Initialize Timer A0 to run hardware task periodically.
- * Clock is set to 12 MHz / 8 = 1.5 MHz.
- * Will run PWM on output pins for the motors,
- * based on parameters sent for duty cycles.
- */
+/*
+  TimerA0_Init
+  ----------------------------------------------------------------------
+  This will initialize Timer A0 to run hardware task periodically. This
+  timer functions as a PWM output to both motors, done through output
+  pins. The SMCLK(12 MHz) is used and divided by 8 to run the timer at
+  1.5 MHz. The period and duty cycles are selected based on the device's
+  time constant and desired speed/intensity. It uses compare mode to set/reset the
+  pins if the counter matches the selected duty cycle. The counter is set
+  to count in the up direction. No interrupts needed as PWM output is
+  handled in hardware.
+
+  The brushed DC motors being used have a time constant of 100 ms. Our period
+  is set to 10 ms(15000 clk cycles) for now.
+
+  Parameters:   1) time(in clk cycles) to calculate duty cycles from,
+                       must fit within 16 bits
+                2) speed(in clk cycles) of left motor as percentage of period(dutyLeft/period),
+                       must be < period
+                3) speed(in clk cycles) of right motor as percentage of period(dutyRight/period),
+                       must be < period
+  Return value: none
+*/
 void TimerA0_Init(uint16_t period, uint16_t dutyLeft, uint16_t dutyRight);
 
+/*
+  SetDuty_Right
+  ----------------------------------------------------------------------
+  Changes the speed of the motor to selected duty cycle.
+
+  Parameters:   1) speed(in clk cycles) of right motor as percentage of period(num_cycles/TA0CCR0),
+                       must be < TA0CCR0
+  Return value: true if valid parameter, false if invalid parameter
+*/
 bool SetDuty_Right(uint16_t num_cycles);
 
+/*
+  SetDuty_Left
+  ----------------------------------------------------------------------
+  Changes the speed of the motor to selected duty cycle.
+
+  Parameters:   1) speed(in clk cycles) of left motor as percentage of period(num_cycles/TA0CCR0),
+                       must be < TA0CCR0
+  Return value: true if valid parameter, false if invalid parameter
+*/
 bool SetDuty_Left(uint16_t num_cycles);
 
 

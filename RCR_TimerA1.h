@@ -47,19 +47,32 @@ policies, either expressed or implied, of the FreeBSD Project.
 #define RCR_TIMERA1_H__
 
 
-/**
-// ***************** TimerA1_Init ****************
-// Activate Timer A1 interrupt to run user task periodically.
-// Currently used for ADC14, but can be repurposed.
-// The clock is set to 12 MHz / 64 = 0.1875 MHz
-// Period must fit within 16 bits and calls task function.
- */
+/*
+  TimerA1_Init
+  ----------------------------------------------------------------------
+  Enable and initialize Timer A1 interrupt to run user task periodically.
+  The clock used is the SMCLK(12 MHz) and is scaled by 8*8 to run the timer
+  at 187.5 kHz. Compare mode is set and no timer output pins are used.
+  Timer is set to count up only and will interrupt at specified period with
+  a priority of 1.
+
+  Currently used for ADC14 task, but can be repurposed.
+
+  Parameters:   1) function pointer to user task to be called at period
+                2) time(in clk cycles) to periodically call user task,
+                       must fit within 16 bits
+  Return value: none
+*/
 void TimerA1_Init(void(*task)(void), uint16_t period);
 
+/*
+  TimerA1_Stop
+  ----------------------------------------------------------------------
+  Disable Timer A1_0 interrupt running a user task periodically.
 
-/**
- * Deactivate the interrupt running a user task periodically.
- */
+  Parameters:   none
+  Return value: none
+*/
 void TimerA1_Stop(void);
 
 #endif // RCR_TIMERA1_H__

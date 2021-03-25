@@ -46,13 +46,25 @@ policies, either expressed or implied, of the FreeBSD Project.
 #include <stdint.h>
 #include "msp.h"
 
-static void (*TimerA1Task)(void);   // user function
+static void (*TimerA1Task)(void);   // user task periodically called by Timer
 
-// ***************** TimerA1_Init ****************
-// Activate Timer A1 interrupt to run user task periodically.
-// Currently used for ADC14, but can be repurposed.
-// The clock is set to 12 MHz / 64 = 0.1875 MHz
-// Period must fit within 16 bits and calls task function.
+
+/*
+  TimerA1_Init
+  ----------------------------------------------------------------------
+  Enable and initialize Timer A1 interrupt to run user task periodically.
+  The clock used is the SMCLK(12 MHz) and is scaled by 8*8 to run the timer
+  at 187.5 kHz. Compare mode is set and no timer output pins are used.
+  Timer is set to count up only and will interrupt at specified period with
+  a priority of 1.
+
+  Currently used for ADC14 task, but can be repurposed.
+
+  Parameters:   1) function pointer to user task to be called at period
+                2) time(in clk cycles) to periodically call user task,
+                       must fit within 16 bits
+  Return value: none
+*/
 void TimerA1_Init(void(*task)(void), uint16_t period) {
     TimerA1Task = task;
 
@@ -69,14 +81,27 @@ void TimerA1_Init(void(*task)(void), uint16_t period) {
     TA1CTL  |= 0x0014;     //reset counter and set for up mode
 }
 
+/*
+  TimerA1_Stop
+  ----------------------------------------------------------------------
+  Disable Timer A1_0 interrupt running a user task periodically.
 
-// ------------TimerA1_Stop------------
-// Deactivate the interrupt running a user task periodically.
+  Parameters:   none
+  Return value: none
+*/
 void TimerA1_Stop(void) {
     NVIC->ICER[0] |= 0x00000400;    //disable TA1_0(irq 10) interrupt
 }
 
+/*
+  TA1_0_IRQHandler
+  ----------------------------------------------------------------------
+  Timer A1_0 interrupt that occurs at period set in TimerA1_Init
+  and calls user task.
 
+  Parameters:   none
+  Return value: none
+*/
 void TA1_0_IRQHandler(void) {
     TA1CCTL0 &= ~0x0001;    //clear interrupt flag
     (*TimerA1Task)();

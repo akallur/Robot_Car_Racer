@@ -46,36 +46,60 @@ policies, either expressed or implied, of the FreeBSD Project.
 #include "msp.h"
 #include "RCR_TimerA0.h"
 
-// P2.7 (TimerA0 sub 4) connected to Left motor PWM
-// P2.6 (TimerA0 sub 3) connected to Right motor PWM
+
+/*
+ Hardware connections
+ ---------------------------------------------------------
+ P2.7 (TimerA0 sub 4) connected to Left motor PWM
+ P2.6 (TimerA0 sub 3) connected to Right motor PWM
+*/
+
 
 //void (*TimerA0Task)(void);   // user function
 
 
-/**
- * Initialize Timer A0 to run hardware task periodically.
- * Clock is set to 12 MHz / 8 = 1.5 MHz.
- * Will run PWM on output pins for the motors,
- * based on parameters sent for duty cycles.
- */
+
+/*
+  TimerA0_Init
+  ----------------------------------------------------------------------
+  This will initialize Timer A0 to run hardware task periodically. This
+  timer functions as a PWM output to both motors, done through output
+  pins. The SMCLK(12 MHz) is used and scaled by 8 to run the timer at
+  1.5 MHz. The period and duty cycles are selected based on the device's
+  time constant and desired speed/intensity. It uses compare mode to set/reset the
+  pins if the counter matches the selected duty cycle. The counter is set
+  to count in the up direction. No interrupts needed as PWM output is
+  handled in hardware.
+
+  The brushed DC motors being used have a time constant of 100 ms. Our period
+  is set to 10 ms(15000 clk cycles) for now.
+
+  Parameters:   1) time(in clk cycles) to calculate duty cycles from,
+                       must fit within 16 bits
+                2) speed(in clk cycles) of left motor as percentage of period(dutyLeft/period),
+                       must be < period
+                3) speed(in clk cycles) of right motor as percentage of period(dutyRight/period),
+                       must be < period
+  Return value: none
+*/
 void TimerA0_Init(uint16_t period, uint16_t dutyLeft, uint16_t dutyRight) {
     if(dutyLeft >= period || dutyRight >= period)
     {
         dutyLeft = dutyRight = 0;
     }
 
-    P2->SEL0  |=  0xC0;
+    P2->SEL0  |=  0xC0;          //configure pins for TA0 function
     P2->SEL1  &= ~0xC0;
     P2->DIR   |=  0xC0;
 
     TA0CTL &= ~0x0030;
-    TA0CTL =   0x02C0;    //ctl: halt timer, SMCLK, divide by 8
-    TA0EX0 =   0x0000;    //ex: set for divide by 1
+    TA0CTL =   0x02C0;           //ctl: halt timer, SMCLK, divide by 8
+    TA0EX0 =   0x0000;           //ex: set for divide by 1
 
-    TA0CCTL0 = 0x0080;   //cctl's: compare mode, outmode = reset/set
+    TA0CCTL0 = 0x0080;           //cctl's: compare mode, outmode = reset/set
     TA0CCTL3 = 0x00E0;
     TA0CCTL4 = 0x00E0;
-    TA0CCR0  = period;        //ccr's: load in cycles
+    TA0CCR0  = period;           //ccr's: load in clk cycles
     TA0CCR3  = dutyRight;
     TA0CCR4  = dutyLeft;
 
@@ -83,12 +107,31 @@ void TimerA0_Init(uint16_t period, uint16_t dutyLeft, uint16_t dutyRight) {
 }
 
 
+/*
+  SetDuty_Right
+  ----------------------------------------------------------------------
+  Changes the speed of the motor to selected duty cycle.
+
+  Parameters:   1) speed(in clk cycles) of right motor as percentage of period(num_cycles/TA0CCR0),
+                       must be < TA0CCR0
+  Return value: true if valid parameter, false if invalid parameter
+*/
 bool SetDuty_Right(uint16_t num_cycles) {
     if(num_cycles >= TA0CCR0) return false;
     TA0CCR3 = num_cycles;
     return true;
 }
 
+
+/*
+  SetDuty_Left
+  ----------------------------------------------------------------------
+  Changes the speed of the motor to selected duty cycle.
+
+  Parameters:   1) speed(in clk cycles) of left motor as percentage of period(num_cycles/TA0CCR0),
+                       must be < TA0CCR0
+  Return value: true if valid parameter, false if invalid parameter
+*/
 bool SetDuty_Left(uint16_t num_cycles) {
     if(num_cycles >= TA0CCR0) return false;
     TA0CCR4 = num_cycles;
