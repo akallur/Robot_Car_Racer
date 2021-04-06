@@ -20,7 +20,7 @@
 #include "RCR_SysTick.h"
 
 #define DATA_X    45
-#define STOP_DIST 150   //in mm
+#define STOP_DIST 120   //in mm
 #define DISP_RATE 60    //multiply this by sample rate(10 ms for now) to get milliseconds
 
 bool debug_mode = true;
@@ -86,9 +86,11 @@ void main(void) {
             ADCflag = 0;
             //handle any potential or actual crashes by stopping and reversing
             if(right_filt < STOP_DIST || center_filt < STOP_DIST || left_filt < STOP_DIST || CollisionFlag) {
-                if(!Motor_Direction()) Motor_Stop();    //only stop the car if it's going forward
-                Motor_Backward(1500,2000);
-                CollisionFlag = 0;
+                if(Motor_Direction() != BACKWARD) {
+                    Motor_Stop();    //don't stop if we're already reversing
+                    Motor_Backward(1500,2000);
+                }
+                CollisionFlag = 0;                  //POTENTIAL BUG FOUND
             }                          //need logic to handle tight spaces that cycle between if else block
             else {  //rudimentary navigation that directs the car to take path of least obstacles
                 if(center_filt > right_filt && center_filt > left_filt) Motor_Forward(3000,3000);

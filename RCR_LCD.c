@@ -33,16 +33,24 @@
 #define DISP_NORM    0x0C    //normal display
 #define DISP_INV     0x0D    //inverted display
 
-// Adafruit 338 Nokia 5110
-// ---------------
-// Ground connected to ground (Gnd, pin 1)
-// 3.3V connected to Power (Vcc, pin 2)
-// P9.5 (SPI A3 CLK) connected to Clock (Clk, pin 3)
-// P9.7 (SPI A3 SIMO) connected to Slave Input (Din, pin 4)
-// P9.6 connected to Data/Command (D/C, pin 5)
-// P9.4 (SPI A3 CS) connected to Chip Select (CS, pin 6)
-// P9.3 connected to Reset (RST, pin 7)
-// 3.3V connected to back light (LED, pin 8)
+
+
+/*
+ Hardware connections
+ ---------------------------------------------------------
+ Adafruit 338 Nokia 5110
+
+ Ground connected to ground (Gnd, pin 1)
+ 3.3V connected to Power (Vcc, pin 2)
+ P9.5 (SPI A3 CLK) connected to Clock (Clk, pin 3)
+ P9.7 (SPI A3 SIMO) connected to Slave Input (Din, pin 4)
+ P9.6 connected to Data/Command (D/C, pin 5)
+ P9.4 (SPI A3 CS) connected to Chip Select (CS, pin 6)
+ P9.3 connected to Reset (RST, pin 7)
+ 3.3V connected to back light (LED, pin 8)
+*/
+
+
 
 // This table contains the hex values that represent pixels
 // for a font that is 5 pixels wide and 8 pixels high
@@ -147,6 +155,16 @@ static const uint8_t ASCII[][PXLS_W] = {
 };
 
 
+/*
+  LCD_Send_Cmd
+  ----------------------------------------------------------------------
+  Will transmit a device configuration command to the LCD. The D/C pin
+  is cleared for command mode and Reset is disabled. There's a 100 ns
+  delay to allow set up time for the pins.
+
+  Parameters:   1) 8-bit configuration command to transmit to LCD
+  Return value: none
+*/
 void LCD_Send_Cmd(uint8_t cmd) {
     int k;
     DC    = 0;                      //command and reset signal is negative logic
@@ -155,6 +173,17 @@ void LCD_Send_Cmd(uint8_t cmd) {
     SPI_A3_Tx(cmd);
 }
 
+
+/*
+  LCD_Send_Data
+  ----------------------------------------------------------------------
+  Will transmit a byte to be displayed to the LCD. The D/C pin
+  is set for data mode and Reset is disabled. There's a 100 ns
+  delay to allow set up time for the pins.
+
+  Parameters:   1) 8-bit display data to transmit to LCD
+  Return value: none
+*/
 void LCD_Send_Data(uint8_t data) {
     int k;
     DC    = 1;                      //data signal is positive logic
@@ -163,6 +192,20 @@ void LCD_Send_Data(uint8_t data) {
     SPI_A3_Tx(data);
 }
 
+/*
+  LCD_Init
+  ----------------------------------------------------------------------
+  Initialize the pins and configure the LCD for SPI communication. The
+  Data/Command and Reset pin are set up for GPIO and the rest of the pins
+  are initialized for SPI. Reset pulse is applied to the LCD on power-up
+  and commands are sent for configuration. The contrast level can be adjusted
+  and characters are displayed horizontally.
+
+  Refer to PCD8544 technical manual for further device configuration.
+
+  Parameters:   none
+  Return value: none
+*/
 void LCD_Init(void) {
     P9->SEL0 &= ~0x48;          //set up 9.3,9.6 as GPIO outputs
     P9->SEL1 &= ~0x48;
@@ -182,7 +225,17 @@ void LCD_Init(void) {
     LCD_ClrScrn();
 }
 
-void LCD_WriteChar(char chr) {  //takes 10us to execute, 2us per byte
+/*
+  LCD_WriteChar
+  ----------------------------------------------------------------------
+  Transmit 5 bytes to display a single character to the LCD screen. A
+  character will take 10us to execute and 2us per byte. Characters are
+  looked up in a table based on ASCII value.
+
+  Parameters:   1) single character to be displayed to LCD
+  Return value: none
+*/
+void LCD_WriteChar(char chr) {
     int k;
     uint32_t row = ((int)chr)-32;       //calculate array row from ASCII value
     for(k = 0; k < PXLS_W; k++) {
@@ -190,6 +243,15 @@ void LCD_WriteChar(char chr) {  //takes 10us to execute, 2us per byte
     }
 }
 
+/*
+  LCD_WriteStr
+  ----------------------------------------------------------------------
+  Transmit all characters in a string to LCD screen. Characters will be
+  displayed until null character in string is reached.
+
+  Parameters:   1) string of characters to be displayed to LCD
+  Return value: none
+*/
 void LCD_WriteStr(char* string) {
     int k = 0;
     while(string[k] != '\0') {          //traverse through string until a null is hit
@@ -198,11 +260,23 @@ void LCD_WriteStr(char* string) {
     }
 }
 
+/*
+  LCD_OutUInt
+  ----------------------------------------------------------------------
+  Transmit an integer to LCD screen. The number of digits are calculated,
+  reversed, and transmitted as ASCII characters.
+
+  A separate function is needed to handle floating points and signed integers.
+
+  Parameters:   1) positive integer to be displayed to LCD
+  Return value: none
+*/
 void LCD_OutUInt(uint32_t num) {
     int k;
     uint32_t temp = num;
     uint32_t digits = (uint32_t)(log10(num)+1);     //calculate number of digits
     uint32_t* arr = (uint32_t*)malloc(digits*sizeof(uint32_t));
+    //if(arr == 0x00000000) return false;
     for(k = digits-1; k >= 0; k--){                 //reverse order of digits pulled off
         arr[k] = temp%10;
         temp /= 10;
@@ -213,14 +287,40 @@ void LCD_OutUInt(uint32_t num) {
     free(arr);                                      //free up temporary array memory
 }
 
-void LCD_ClrScrn(void) {        //takes 1ms to execute, 2us per byte
+/*
+  LCD_ClrScrn
+  ----------------------------------------------------------------------
+  Will clear entire LCD screen by transmitting 0x00 to all pixels.
+  It takes 1ms to execute and 2us per byte.
+
+  Parameters:   none
+  Return value: none
+*/
+void LCD_ClrScrn(void) {
     int k;
     for(k = 0; k < LCD_COLUMNS*LCD_ROWS; k++) {
         LCD_Send_Data(0x00);
     }
 }
 
-bool LCD_ClrSection(uint8_t Xs, uint8_t Xe, uint8_t Ys, uint8_t Ye) {   //only for horizontal mode
+/*
+  LCD_ClrSection
+  ----------------------------------------------------------------------
+  Will clear a section of the LCD screen based on desired coordinates.
+  Assumes LCD device is configured for horizontal mode. Columns in a single
+  row are cleared and then done for the next rows.
+
+  Parameters:   1) x-coordinate to start clearing at,
+                      must be between columns 0 and 83 and <= Xe
+                2) x-coordinate to end clearing at and is inclusive,
+                      must be between columns 0 and 83
+                3) y-coordinate to start clearing at,
+                      must be between rows 0 and 5 and <= Ye
+                4) y-coordinate to end clearing at and is inclusive,
+                      must be between rows 0 and 5
+  Return value: true if valid coordinates, false if invalid
+*/
+bool LCD_ClrSection(uint8_t Xs, uint8_t Xe, uint8_t Ys, uint8_t Ye) {
     int k;
     uint8_t xcnt = Xs;
     uint8_t ycnt = Ys;      //error conditions for input parameters
@@ -239,6 +339,18 @@ bool LCD_ClrSection(uint8_t Xs, uint8_t Xe, uint8_t Ys, uint8_t Ye) {   //only f
     return true;
 }
 
+/*
+  LCD_SetCursor
+  ----------------------------------------------------------------------
+  Transmits commands to set the display cursor at the desired coordinates.
+  Data will start being displayed horizontally from this position.
+
+  Parameters:   1) x-coordinate to set display cursor,
+                      must be between columns 0 and 83
+                2) y-coordinate to set display cursor,
+                      must be between rows 0 and 5
+  Return value: true if valid coordinates, false if invalid
+*/
 bool LCD_SetCursor(uint8_t X, uint8_t Y) {
     if(X > 83 || Y > 5) return false;     // 0 <= X <= 83, 0 <= Y <= 5
     LCD_Send_Cmd(0x80 | X);
@@ -246,6 +358,14 @@ bool LCD_SetCursor(uint8_t X, uint8_t Y) {
     return true;
 }
 
+/*
+  LCD_Reset
+  ----------------------------------------------------------------------
+  Applies a Reset pulse to the LCD device. Pulse must last 100 ns.
+
+  Parameters:   none
+  Return value: none
+*/
 void LCD_Reset(void) {
     int k;
     RESET = 0;              //reset signal is negative logic

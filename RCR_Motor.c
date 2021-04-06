@@ -41,12 +41,6 @@ those of the authors and should not be interpreted as representing official
 policies, either expressed or implied, of the FreeBSD Project.
 */
 
-// P5.4 connected to Left motor direction
-// P2.7 (TimerA0 sub 4) connected to Left motor PWM
-// P3.7 connected to Left motor enable
-// P5.5 connected to Right motor direction
-// P2.6 (TimerA0 sub 3) connected to Right motor PWM
-// P3.6 connected to Right motor enable
 
 #include <stdint.h>
 #include "msp.h"
@@ -54,15 +48,33 @@ policies, either expressed or implied, of the FreeBSD Project.
 #include "RCR_TimerA0.h"
 #include "RCR_Motor.h"
 
-// ------------Motor_Init------------
-/**
- * Initialize GPIO pins for output, which will be
- * used to control the direction of the motors and
- * to enable or disable the drivers.
- * The motors are initially stopped, the drivers
- * are initially powered down, and the PWM speed
- * control is uninitialized.
- */
+
+/*
+ Hardware connections
+ ---------------------------------------------------------
+ P5.4 connected to Left motor direction
+ P2.7 (TimerA0 sub 4) connected to Left motor PWM
+ P3.7 connected to Left motor enable
+ P5.5 connected to Right motor direction
+ P2.6 (TimerA0 sub 3) connected to Right motor PWM
+ P3.6 connected to Right motor enable
+*/
+
+
+/*
+  Motor_Init
+  ----------------------------------------------------------------------
+  Initialize GPIO pins for output, which will be used to control the
+  direction of the motors and to enable or disable the driver IC's.
+  The motors are initially stopped, the driver IC's are initially powered
+  down, and the PWM speed control is uninitialized.
+
+  Timer A0 is initialized for a 15000 clock cycle period that is 1/10
+  of the motor time constants of 100 ms.
+
+  Parameters:   none
+  Return value: none
+*/
 void Motor_Init(void) {
   P3->SEL0 &= ~0xC0;
   P3->SEL1 &= ~0xC0;
@@ -77,23 +89,34 @@ void Motor_Init(void) {
   TimerA0_Init(15000,0,0);
 }
 
-// ------------Motor_Stop------------
-/**
- * Stop the motors, power down the drivers, and
- * set the PWM speed control to 0% duty cycle.
- */
+/*
+  Motor_Stop
+  ----------------------------------------------------------------------
+  Stop the motors by powering down the driver IC's.
+
+  Parameters:   none
+  Return value: none
+*/
 void Motor_Stop(void) {
     P3->OUT  &= ~0xC0;
 }
 
-// ------------Motor_Forward------------
-/**
- * Drive the robot forward by running left and
- * right wheels forward with the given duty
- * cycles. Assumes Motor_Init() has been called.
- * 0 <= leftDuty <= 14,998
- * 0 <= rightDuty <= 14,998
- */
+
+/*
+  Motor_Forward
+  ----------------------------------------------------------------------
+  Drive the motors forward by clearing the direction pins and by running
+  left and right motors with the given duty cycles. Assumes Motor_Init()
+  has been called.
+
+  Motor direction is negative logic where forward is a 0 on I/O pins.
+
+  Parameters:   1) speed(in clk cycles) of left motor as percentage of period(leftDuty/15000),
+                       must be <= 14,998
+                2) speed(in clk cycles) of right motor as percentage of period(rightDuty/15000),
+                       must be <= 14,998
+  Return value: none
+*/
 void Motor_Forward(uint16_t leftDuty, uint16_t rightDuty) {
     P3->OUT  |=  0xC0;
     P5->OUT  &= ~0x30;
@@ -101,15 +124,21 @@ void Motor_Forward(uint16_t leftDuty, uint16_t rightDuty) {
     SetDuty_Right(rightDuty);
 }
 
-// ------------Motor_Right------------
-/**
- * Turn the robot to the right by running the
- * left wheel forward and the right wheel
- * backward with the given duty cycles.
- * Assumes Motor_Init() has been called.
- * 0 <= leftDuty <= 14,998
- * 0 <= rightDuty <= 14,998
- */
+/*
+  Motor_Right
+  ----------------------------------------------------------------------
+  Turn the robot to the right by running the left motor forward and the
+  right motor backward with the given duty cycles. Assumes Motor_Init()
+  has been called.
+
+  Motor direction is negative logic where forward is a 0 on I/O pins.
+
+  Parameters:   1) speed(in clk cycles) of left motor as percentage of period(leftDuty/15000),
+                       must be <= 14,998
+                2) speed(in clk cycles) of right motor as percentage of period(rightDuty/15000),
+                       must be <= 14,998
+  Return value: none
+*/
 void Motor_Right(uint16_t leftDuty, uint16_t rightDuty) {
     P3->OUT  |=  0xC0;
     P5->OUT  &= ~0x10;
@@ -118,15 +147,21 @@ void Motor_Right(uint16_t leftDuty, uint16_t rightDuty) {
     SetDuty_Right(rightDuty);
 }
 
-// ------------Motor_Left------------
-/**
- * Turn the robot to the left by running the
- * left wheel backward and the right wheel
- * forward with the given duty cycles.
- * Assumes Motor_Init() has been called.
- * 0 <= leftDuty <= 14,998
- * 0 <= rightDuty <= 14,998
- */
+/*
+  Motor_Left
+  ----------------------------------------------------------------------
+  Turn the robot to the left by running the left motor backward and the
+  right motor forward with the given duty cycles. Assumes Motor_Init()
+  has been called.
+
+  Motor direction is negative logic where forward is a 0 on I/O pins.
+
+  Parameters:   1) speed(in clk cycles) of left motor as percentage of period(leftDuty/15000),
+                       must be <= 14,998
+                2) speed(in clk cycles) of right motor as percentage of period(rightDuty/15000),
+                       must be <= 14,998
+  Return value: none
+*/
 void Motor_Left(uint16_t leftDuty, uint16_t rightDuty) {
     P3->OUT  |=  0xC0;
     P5->OUT  &= ~0x20;
@@ -135,14 +170,21 @@ void Motor_Left(uint16_t leftDuty, uint16_t rightDuty) {
     SetDuty_Right(rightDuty);
 }
 
-// ------------Motor_Backward------------
-/**
- * Drive the robot backward by running left and
- * right wheels backward with the given duty
- * cycles. Assumes Motor_Init() has been called.
- * 0 <= leftDuty <= 14,998
- * 0 <= rightDuty <= 14,998
- */
+/*
+  Motor_Backward
+  ----------------------------------------------------------------------
+  Drive the robot backward by running left and right motors with
+  the given duty cycles and setting the direction pins. Assumes Motor_Init()
+  has been called.
+
+  Motor direction is negative logic where forward is a 0 on I/O pins.
+
+  Parameters:   1) speed(in clk cycles) of left motor as percentage of period(leftDuty/15000),
+                       must be <= 14,998
+                2) speed(in clk cycles) of right motor as percentage of period(rightDuty/15000),
+                       must be <= 14,998
+  Return value: none
+*/
 void Motor_Backward(uint16_t leftDuty, uint16_t rightDuty) {
     P3->OUT  |= 0xC0;
     P5->OUT  |= 0x30;
@@ -150,6 +192,20 @@ void Motor_Backward(uint16_t leftDuty, uint16_t rightDuty) {
     SetDuty_Right(rightDuty);
 }
 
-bool Motor_Direction(void) {
+/*
+  Motor_Direction
+  ----------------------------------------------------------------------
+  Gives the current direction of the motors. Assumes Motor_Init()
+  has been called.
+
+  Motor direction is negative logic where forward is a 0 on I/O pins.
+
+  Parameters:   none
+  Return value: 0x00 is forward,
+                0x30 is backward,
+                0x20 is right,
+                0x10 is left
+*/
+uint8_t Motor_Direction(void) {
     return P5->OUT&0x30;
 }

@@ -77,13 +77,13 @@ policies, either expressed or implied, of the FreeBSD Project.
   Parameters:   1) time(in clk cycles) to calculate duty cycles from,
                        must fit within 16 bits
                 2) speed(in clk cycles) of left motor as percentage of period(dutyLeft/period),
-                       must be < period
+                       must be < period-1
                 3) speed(in clk cycles) of right motor as percentage of period(dutyRight/period),
-                       must be < period
+                       must be < period-1
   Return value: none
 */
 void TimerA0_Init(uint16_t period, uint16_t dutyLeft, uint16_t dutyRight) {
-    if(dutyLeft >= period || dutyRight >= period)
+    if(dutyLeft >= period-1 || dutyRight >= period-1)
     {
         dutyLeft = dutyRight = 0;
     }
@@ -113,11 +113,11 @@ void TimerA0_Init(uint16_t period, uint16_t dutyLeft, uint16_t dutyRight) {
   Changes the speed of the motor to selected duty cycle.
 
   Parameters:   1) speed(in clk cycles) of right motor as percentage of period(num_cycles/TA0CCR0),
-                       must be < TA0CCR0
+                       must be < TA0CCR0-1
   Return value: true if valid parameter, false if invalid parameter
 */
 bool SetDuty_Right(uint16_t num_cycles) {
-    if(num_cycles >= TA0CCR0) return false;
+    if(num_cycles >= TA0CCR0-1) return false;
     TA0CCR3 = num_cycles;
     return true;
 }
@@ -129,11 +129,11 @@ bool SetDuty_Right(uint16_t num_cycles) {
   Changes the speed of the motor to selected duty cycle.
 
   Parameters:   1) speed(in clk cycles) of left motor as percentage of period(num_cycles/TA0CCR0),
-                       must be < TA0CCR0
+                       must be < TA0CCR0-1
   Return value: true if valid parameter, false if invalid parameter
 */
 bool SetDuty_Left(uint16_t num_cycles) {
-    if(num_cycles >= TA0CCR0) return false;
+    if(num_cycles >= TA0CCR0-1) return false;
     TA0CCR4 = num_cycles;
     return true;
 }
